@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trip.com Flights — CXO Account Intelligence</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue: #287DFA; --blue-dark: #1a5fd4; --blue-light: #e8f1ff;
+  --yellow: #FFB400; --yellow-light: #fff8e6;
+  --text: #1a1a2e; --muted: #6b7280; --border: #e5e7eb;
+  --bg-subtle: #f8faff;
+  --green: #16a34a;  --green-bg: #dcfce7;  --green-tx: #15803d;
+  --warm: #eab308;   --warm-bg: #fef9c3;   --warm-tx: #a16207;
+  --orange: #ea580c; --orange-bg: #ffedd5; --orange-tx: #c2410c;
+  --red: #dc2626;    --red-bg: #fee2e2;    --red-tx: #b91c1c;
+  --gray: #9ca3af;   --gray-bg: #f3f4f6;   --gray-tx: #6b7280;
+  --purple: #7c3aed; --purple-bg: #ede9fe; --purple-tx: #6d28d9;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: #eef1f6; color: var(--text);
+  display: flex; overflow: hidden;
+  font-size: 13px;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar {
+  width: 208px; flex-shrink: 0;
+  background: #fff; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 20px 14px;
+}
+.logo { display: flex; align-items: center; gap: 8px; padding: 2px 8px 20px; }
+.logo-mark {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--blue);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 15px;
+  position: relative; overflow: hidden;
+}
+.logo-mark::after {
+  content: ''; position: absolute; right: -6px; bottom: -6px;
+  width: 16px; height: 16px; border-radius: 50%; background: var(--yellow);
+}
+.logo-text { font-weight: 800; font-size: 15px; color: var(--text); letter-spacing: -0.02em; }
+.logo-text span { color: var(--blue); }
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px;
+  color: var(--muted); text-decoration: none;
+  font-weight: 600; font-size: 13px;
+  transition: background .12s, color .12s;
+}
+.nav a:hover { background: var(--bg-subtle); color: var(--text); }
+.nav a.active { background: var(--blue-light); color: var(--blue-dark); }
+.nav a .nav-icon { width: 18px; text-align: center; font-size: 14px; }
+.nav a .badge-count {
+  margin-left: auto; background: var(--red-bg); color: var(--red-tx);
+  font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 7px;
+}
+
+.sidebar-footer { margin-top: auto; border-top: 1px solid var(--border); padding-top: 14px; }
+.user-ctx { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: var(--yellow); color: #7a5200;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 12px;
+}
+.user-ctx .who { font-size: 11px; line-height: 1.4; color: var(--muted); }
+.user-ctx .who strong { display: block; color: var(--text); font-size: 12px; }
+
+/* ── MAIN ────────────────────────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
+.topbar {
+  background: var(--blue); color: #fff;
+  padding: 14px 24px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 16px;
+}
+.topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.topbar .meta { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 12px; }
+.topbar .meta .sep { opacity: .4; }
+.topbar .scope {
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 20px; padding: 4px 13px; font-weight: 600;
+}
+.topbar .date { color: rgba(255,255,255,.85); font-weight: 500; }
+
+.content {
+  flex: 1; min-height: 0;
+  padding: 16px 20px 18px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* ── KPI STRIP ───────────────────────────────────────────── */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; flex-shrink: 0; }
+.kpi {
+  background: #fff; border-radius: 12px; padding: 14px 18px;
+  box-shadow: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+  border-top: 3px solid transparent;
+}
+.kpi .kl { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.kpi .kv { font-size: 28px; font-weight: 800; margin: 3px 0 1px; letter-spacing: -0.02em; }
+.kpi .kt { font-size: 11.5px; font-weight: 600; }
+.kpi.k-green  { border-top-color: var(--green); }  .kpi.k-green .kv { color: var(--text); } .kpi.k-green .kt { color: var(--green-tx); }
+.kpi.k-red    { border-top-color: var(--red); }    .kpi.k-red .kt { color: var(--red-tx); }
+.kpi.k-blue   { border-top-color: var(--blue); }   .kpi.k-blue .kt { color: var(--blue-dark); }
+.kpi.k-orange { border-top-color: var(--orange); } .kpi.k-orange .kt { color: var(--orange-tx); }
+
+/* ── MIDDLE ROW ──────────────────────────────────────────── */
+.mid { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; flex: 1.15; min-height: 0; }
+.card {
+  background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+  padding: 14px 18px;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.card h2 { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; }
+.card .card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
+.card .sub { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+/* Health map: stacked bars by region */
+.health-body { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; min-height: 0; }
+.region-row { display: grid; grid-template-columns: 78px 1fr 60px; align-items: center; gap: 12px; }
+.region-row .rname { font-size: 12px; font-weight: 700; }
+.region-row .rcount { font-size: 11px; color: var(--muted); text-align: right; font-weight: 500; }
+.stack { display: flex; height: 26px; border-radius: 7px; overflow: hidden; background: var(--gray-bg); }
+.stack .seg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff;
+  min-width: 0; overflow: hidden; white-space: nowrap;
+  transition: filter .12s;
+}
+.stack .seg:hover { filter: brightness(1.08); }
+.seg-ACTIVE  { background: #22c55e; }
+.seg-WARM    { background: var(--yellow); color: #6b4a00 !important; }
+.seg-STALLED { background: #f97316; }
+.seg-COLD    { background: #ef4444; }
+.seg-DORMANT { background: #b9c0cb; color: #4b5563 !important; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.legend .li { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; color: var(--muted); }
+.legend .dot { width: 9px; height: 9px; border-radius: 3px; }
+
+/* Alert feed */
+.alerts { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.alerts::-webkit-scrollbar { width: 5px; }
+.alerts::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.alert {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: var(--bg-subtle); border: 1px solid var(--border);
+  border-radius: 9px; padding: 8px 11px; flex-shrink: 0;
+}
+.alert .aicon { font-size: 15px; line-height: 1.3; flex-shrink: 0; }
+.alert .abody { min-width: 0; flex: 1; }
+.alert .atitle { font-size: 12px; font-weight: 700; }
+.alert .atitle .aexec { color: var(--muted); font-weight: 500; }
+.alert .amsg { font-size: 11.5px; color: var(--muted); line-height: 1.45; margin-top: 1px; }
+.alert .atime { font-size: 10.5px; color: var(--gray); flex-shrink: 0; font-weight: 500; white-space: nowrap; }
+.alert.sev-cold { border-left: 3px solid var(--red); }
+.alert.sev-stall { border-left: 3px solid var(--orange); }
+.alert.sev-due { border-left: 3px solid var(--yellow); }
+.alert.sev-esc { border-left: 3px solid var(--purple); }
+
+/* ── BOTTOM ROW ──────────────────────────────────────────── */
+.bottom { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; flex: 1; min-height: 0; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  text-align: left; padding: 5px 10px 7px; border-bottom: 1px solid var(--border);
+}
+tbody td { padding: 7px 10px; font-size: 12px; border-bottom: 1px solid #f1f3f7; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg-subtle); }
+td.airline { font-weight: 700; }
+td.num { font-variant-numeric: tabular-nums; }
+td .exec { color: var(--muted); }
+
+.badge {
+  display: inline-block; padding: 2px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+}
+.badge-ACTIVE      { background: var(--green-bg);  color: var(--green-tx); }
+.badge-WARM        { background: var(--warm-bg);   color: var(--warm-tx); }
+.badge-STALLED     { background: var(--orange-bg); color: var(--orange-tx); }
+.badge-COLD        { background: var(--red-bg);    color: var(--red-tx); }
+.badge-DORMANT     { background: var(--gray-bg);   color: var(--gray-tx); }
+.badge-NEGOTIATING { background: var(--blue-light); color: var(--blue-dark); }
+.badge-ESCALATED   { background: var(--purple-bg); color: var(--purple-tx); }
+
+/* Sparklines */
+.spark-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px 12px; min-height: 0; }
+.spark { display: flex; flex-direction: column; min-height: 0; }
+.spark .sp-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+.spark .sp-name { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.spark .sp-val { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.spark svg { flex: 1; width: 100%; min-height: 0; }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">t</div>
+    <div class="logo-text">trip<span>.com</span></div>
+  </div>
+  <nav class="nav">
+    <a href="#" class="active"><span class="nav-icon">◫</span> Overview</a>
+    <a href="#"><span class="nav-icon">✈</span> Accounts</a>
+    <a href="#"><span class="nav-icon">👥</span> Executives</a>
+    <a href="#"><span class="nav-icon">◎</span> Intelligence</a>
+    <a href="#"><span class="nav-icon">🔔</span> Alerts <span class="badge-count">23</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-ctx">
+      <div class="avatar">HP</div>
+      <div class="who"><strong>Flights Business Unit</strong>Head of Partnerships</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <header class="topbar">
+    <h1>Flights Org — Account Intelligence</h1>
+    <div class="meta">
+      <span class="date">Monday, July 7, 2026</span>
+      <span class="sep">|</span>
+      <span class="scope">500 executives · 7,500 accounts</span>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- KPI strip -->
+    <div class="kpis">
+      <div class="kpi k-green">
+        <div class="kl">Active Accounts</div>
+        <div class="kv">4,847</div>
+        <div class="kt">▲ +312 vs last week</div>
+      </div>
+      <div class="kpi k-red">
+        <div class="kl">Stalled</div>
+        <div class="kv">892</div>
+        <div class="kt">● Needs action</div>
+      </div>
+      <div class="kpi k-blue">
+        <div class="kl">Deals in Negotiation</div>
+        <div class="kv">1,203</div>
+        <div class="kt">▲ 3 progressed today</div>
+      </div>
+      <div class="kpi k-orange">
+        <div class="kl">Action Items Overdue</div>
+        <div class="kv">447</div>
+        <div class="kt">⏱ Oldest: 12 days</div>
+      </div>
+    </div>
+
+    <!-- Middle row: health map + alerts -->
+    <div class="mid">
+      <section class="card">
+        <div class="card-head">
+          <h2>Account Health Map</h2>
+          <span class="sub">State distribution by region · % of accounts</span>
+        </div>
+        <div class="health-body" id="healthMap"></div>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Live Alert Feed</h2>
+          <span class="sub">Last 24h · 23 open</span>
+        </div>
+        <div class="alerts" id="alertFeed"></div>
+      </section>
+    </div>
+
+    <!-- Bottom row: velocity table + sparklines -->
+    <div class="bottom">
+      <section class="card">
+        <div class="card-head">
+          <h2>Top 5 Accounts by Deal Velocity</h2>
+          <span class="sub">Offers exchanged this quarter</span>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Airline</th><th>Executive</th><th>Offers</th><th>Last Contact</th><th>State</th></tr>
+          </thead>
+          <tbody id="velocityTable"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Weekly Trend</h2>
+          <span class="sub">Accounts by state · 8 weeks</span>
+        </div>
+        <div class="spark-grid" id="sparks"></div>
+      </section>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────
+const STATES = ['ACTIVE','WARM','STALLED','COLD','DORMANT'];
+const STATE_COLORS = {
+  ACTIVE: '#22c55e', WARM: '#FFB400', STALLED: '#f97316',
+  COLD: '#ef4444', DORMANT: '#b9c0cb'
+};
+
+const regions = [
+  { name: 'APAC',     total: 3120, dist: { ACTIVE: 58, WARM: 16, STALLED: 12, COLD: 8,  DORMANT: 6 } },
+  { name: 'MEA',      total: 1680, dist: { ACTIVE: 52, WARM: 18, STALLED: 14, COLD: 9,  DORMANT: 7 } },
+  { name: 'EU',       total: 1540, dist: { ACTIVE: 61, WARM: 14, STALLED: 11, COLD: 7,  DORMANT: 7 } },
+  { name: 'Americas', total: 1160, dist: { ACTIVE: 47, WARM: 19, STALLED: 15, COLD: 11, DORMANT: 8 } },
+];
+
+const alerts = [
+  { sev: 'cold',  icon: '🚨', tag: 'GOING COLD',  airline: 'Cathay Pacific',     exec: 'Wei Zhang',      msg: 'No inbound reply in 19 days; codeshare renewal expires Aug 1.', time: '4m' },
+  { sev: 'esc',   icon: '🔺', tag: 'ESCALATION',  airline: 'Emirates',           exec: 'Sara Al-Mansoori', msg: 'Pricing dispute escalated to director — NDC surcharge terms.', time: '22m' },
+  { sev: 'stall', icon: '⚠️', tag: 'STALLED',     airline: 'IndiGo',             exec: 'Rohan Mehta',    msg: 'Ancillary bundle offer pending 11 days with no counter.', time: '1h' },
+  { sev: 'due',   icon: '📋', tag: 'OVERDUE',     airline: 'Flydubai',           exec: 'Omar Haddad',    msg: 'Contract redline review overdue 6 days (owner: legal).', time: '2h' },
+  { sev: 'cold',  icon: '🚨', tag: 'GOING COLD',  airline: 'SpiceJet',           exec: 'Priya Nair',     msg: 'Contact left airline — no replacement mapped for account.', time: '3h' },
+  { sev: 'stall', icon: '⚠️', tag: 'STALLED',     airline: 'Thai Airways',       exec: 'Naret Chai',     msg: 'Group fares pilot on hold pending their revenue-mgmt sign-off.', time: '5h' },
+  { sev: 'due',   icon: '📋', tag: 'OVERDUE',     airline: 'Air Arabia',         exec: 'Lina Farouk',    msg: '3 action items from Jun 24 QBR still open.', time: '7h' },
+  { sev: 'esc',   icon: '🔺', tag: 'ESCALATION',  airline: 'GoAir',              exec: 'Arjun Rao',      msg: 'Settlement discrepancy flagged for finance escalation.', time: '9h' },
+  { sev: 'stall', icon: '⚠️', tag: 'STALLED',     airline: 'Singapore Airlines', exec: 'Mei Lin Tan',    msg: 'API integration proposal unanswered since Jun 22.', time: '14h' },
+  { sev: 'cold',  icon: '🚨', tag: 'GOING COLD',  airline: 'Air China',          exec: 'Li Jun',         msg: 'Meeting cadence dropped from weekly to none in 3 weeks.', time: '21h' },
+];
+
+const velocity = [
+  { airline: 'IndiGo',             exec: 'Rohan Mehta',   offers: 14, last: 'Today',      state: 'NEGOTIATING' },
+  { airline: 'Emirates',           exec: 'Sara Al-Mansoori', offers: 11, last: 'Yesterday', state: 'ESCALATED' },
+  { airline: 'AirAsia',            exec: 'Farah Ibrahim', offers: 9,  last: 'Today',      state: 'ACTIVE' },
+  { airline: 'Air China',          exec: 'Li Jun',        offers: 8,  last: '3 days ago', state: 'WARM' },
+  { airline: 'Singapore Airlines', exec: 'Mei Lin Tan',   offers: 7,  last: '5 days ago', state: 'STALLED' },
+];
+
+// 8-week series per state (counts)
+const trends = {
+  ACTIVE:  [4310, 4385, 4420, 4512, 4590, 4633, 4535, 4847],
+  WARM:    [1240, 1195, 1210, 1165, 1130, 1088, 1120, 1061],
+  STALLED: [1010, 985,  1024, 968,  931,  902,  944,  892],
+  COLD:    [538,  562,  541,  520,  498,  511,  489,  452],
+  DORMANT: [402,  373,  305,  335,  351,  366,  412,  248],
+};
+
+// ── Render: health map ───────────────────────────────────────
+const healthMap = document.getElementById('healthMap');
+regions.forEach(r => {
+  const row = document.createElement('div');
+  row.className = 'region-row';
+  const segs = STATES.map(s => {
+    const pct = r.dist[s];
+    const label = pct >= 8 ? pct + '%' : '';
+    return `<div class="seg seg-${s}" style="flex:${pct}" title="${r.name} · ${s}: ${pct}% (${Math.round(r.total*pct/100)} accounts)">${label}</div>`;
+  }).join('');
+  row.innerHTML = `<div class="rname">${r.name}</div><div class="stack">${segs}</div><div class="rcount">${r.total.toLocaleString()}</div>`;
+  healthMap.appendChild(row);
+});
+
+document.getElementById('legend').innerHTML = STATES.map(s =>
+  `<div class="li"><span class="dot" style="background:${STATE_COLORS[s]}"></span>${s}</div>`
+).join('');
+
+// ── Render: alert feed ───────────────────────────────────────
+document.getElementById('alertFeed').innerHTML = alerts.map(a => `
+  <div class="alert sev-${a.sev}">
+    <div class="aicon">${a.icon}</div>
+    <div class="abody">
+      <div class="atitle">${a.tag} — ${a.airline} <span class="aexec">· ${a.exec}</span></div>
+      <div class="amsg">${a.msg}</div>
+    </div>
+    <div class="atime">${a.time} ago</div>
+  </div>`).join('');
+
+// ── Render: velocity table ───────────────────────────────────
+document.getElementById('velocityTable').innerHTML = velocity.map(v => `
+  <tr>
+    <td class="airline">${v.airline}</td>
+    <td class="exec">${v.exec}</td>
+    <td class="num">${v.offers}</td>
+    <td class="exec">${v.last}</td>
+    <td><span class="badge badge-${v.state}">${v.state}</span></td>
+  </tr>`).join('');
+
+// ── Render: sparklines ───────────────────────────────────────
+function sparkline(series, color) {
+  const W = 120, H = 36, P = 3;
+  const min = Math.min(...series), max = Math.max(...series);
+  const range = max - min || 1;
+  const pts = series.map((v, i) => {
+    const x = P + i * (W - 2 * P) / (series.length - 1);
+    const y = H - P - (v - min) / range * (H - 2 * P);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
+  const line = pts.map(p => p.join(',')).join(' ');
+  const area = `${P},${H - P} ${line} ${W - P},${H - P}`;
+  const [lx, ly] = pts[pts.length - 1];
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <polygon points="${area}" fill="${color}" opacity="0.12"/>
+    <polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${lx}" cy="${ly}" r="2.6" fill="${color}"/>
+  </svg>`;
+}
+
+const sparks = document.getElementById('sparks');
+STATES.forEach(s => {
+  const series = trends[s];
+  const cur = series[series.length - 1], prev = series[series.length - 2];
+  const delta = cur - prev;
+  const goodUp = (s === 'ACTIVE');
+  const good = goodUp ? delta >= 0 : delta <= 0;
+  const div = document.createElement('div');
+  div.className = 'spark';
+  div.innerHTML = `
+    <div class="sp-head">
+      <span class="sp-name" style="color:${STATE_COLORS[s]}">${s}</span>
+      <span class="sp-val">${cur.toLocaleString()} <small style="font-weight:600;color:${good ? '#16a34a' : '#dc2626'}">${delta >= 0 ? '+' : ''}${delta}</small></span>
+    </div>
+    ${sparkline(series, STATE_COLORS[s])}`;
+  sparks.appendChild(div);
+});
+</script>
+</body>
+</html>
