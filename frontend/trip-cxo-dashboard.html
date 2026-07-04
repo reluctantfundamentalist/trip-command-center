@@ -205,6 +205,16 @@ td .exec { color: var(--muted); }
 .spark .sp-name { font-size: 10.5px; font-weight: 700; color: var(--muted); }
 .spark .sp-val { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .spark svg { flex: 1; width: 100%; min-height: 0; }
+
+/* Data-layer additions: loading skeleton + API fallback banner */
+@keyframes skelPulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+.skel { background: var(--gray-bg); border-radius: 8px; height: 26px; animation: skelPulse 1.2s ease-in-out infinite; }
+.loading-skel { display: flex; flex-direction: column; gap: 8px; justify-content: space-evenly; }
+.api-banner {
+  background: var(--yellow-light); border: 1px solid var(--yellow); color: #7a5200;
+  border-radius: 8px; padding: 6px 12px; font-size: 11.5px; font-weight: 600; flex-shrink: 0;
+}
+.no-data { font-size: 12px; color: var(--muted); padding: 8px 2px; }
 </style>
 </head>
 <body>
@@ -314,22 +324,31 @@ td .exec { color: var(--muted); }
   </div>
 </div>
 
+<!--
+  Live data layer: this page fetches from the FastAPI backend (API_BASE below).
+  NOTE: the backend must have CORS enabled — api/main.py already registers
+  CORSMiddleware with allow_origins=["*"], so no backend change is required.
+  If the API is unreachable, the page falls back to the demo data constants below.
+-->
 <script>
-// ── Data ─────────────────────────────────────────────────────
+// ── Config ───────────────────────────────────────────────────
+const API_BASE = window.API_BASE || 'http://localhost:8000';
+
 const STATES = ['ACTIVE','WARM','STALLED','COLD','DORMANT'];
 const STATE_COLORS = {
   ACTIVE: '#22c55e', WARM: '#FFB400', STALLED: '#f97316',
   COLD: '#ef4444', DORMANT: '#b9c0cb'
 };
 
-const regions = [
+// ── Sample data (fallback when the API is unavailable) ───────
+const SAMPLE_REGIONS = [
   { name: 'APAC',     total: 3120, dist: { ACTIVE: 58, WARM: 16, STALLED: 12, COLD: 8,  DORMANT: 6 } },
   { name: 'MEA',      total: 1680, dist: { ACTIVE: 52, WARM: 18, STALLED: 14, COLD: 9,  DORMANT: 7 } },
   { name: 'EU',       total: 1540, dist: { ACTIVE: 61, WARM: 14, STALLED: 11, COLD: 7,  DORMANT: 7 } },
   { name: 'Americas', total: 1160, dist: { ACTIVE: 47, WARM: 19, STALLED: 15, COLD: 11, DORMANT: 8 } },
 ];
 
-const alerts = [
+const SAMPLE_ALERTS = [
   { sev: 'cold',  icon: '🚨', tag: 'GOING COLD',  airline: 'Cathay Pacific',     exec: 'Wei Zhang',      msg: 'No inbound reply in 19 days; codeshare renewal expires Aug 1.', time: '4m' },
   { sev: 'esc',   icon: '🔺', tag: 'ESCALATION',  airline: 'Emirates',           exec: 'Sara Al-Mansoori', msg: 'Pricing dispute escalated to director — NDC surcharge terms.', time: '22m' },
   { sev: 'stall', icon: '⚠️', tag: 'STALLED',     airline: 'IndiGo',             exec: 'Rohan Mehta',    msg: 'Ancillary bundle offer pending 11 days with no counter.', time: '1h' },
@@ -342,7 +361,7 @@ const alerts = [
   { sev: 'cold',  icon: '🚨', tag: 'GOING COLD',  airline: 'Air China',          exec: 'Li Jun',         msg: 'Meeting cadence dropped from weekly to none in 3 weeks.', time: '21h' },
 ];
 
-const velocity = [
+const SAMPLE_VELOCITY = [
   { airline: 'IndiGo',             exec: 'Rohan Mehta',   offers: 14, last: 'Today',      state: 'NEGOTIATING' },
   { airline: 'Emirates',           exec: 'Sara Al-Mansoori', offers: 11, last: 'Yesterday', state: 'ESCALATED' },
   { airline: 'AirAsia',            exec: 'Farah Ibrahim', offers: 9,  last: 'Today',      state: 'ACTIVE' },
@@ -351,7 +370,7 @@ const velocity = [
 ];
 
 // 8-week series per state (counts)
-const trends = {
+const SAMPLE_TRENDS = {
   ACTIVE:  [4310, 4385, 4420, 4512, 4590, 4633, 4535, 4847],
   WARM:    [1240, 1195, 1210, 1165, 1130, 1088, 1120, 1061],
   STALLED: [1010, 985,  1024, 968,  931,  902,  944,  892],
@@ -359,44 +378,117 @@ const trends = {
   DORMANT: [402,  373,  305,  335,  351,  366,  412,  248],
 };
 
-// ── Render: health map ───────────────────────────────────────
-const healthMap = document.getElementById('healthMap');
-regions.forEach(r => {
-  const row = document.createElement('div');
-  row.className = 'region-row';
-  const segs = STATES.map(s => {
-    const pct = r.dist[s];
-    const label = pct >= 8 ? pct + '%' : '';
-    return `<div class="seg seg-${s}" style="flex:${pct}" title="${r.name} · ${s}: ${pct}% (${Math.round(r.total*pct/100)} accounts)">${label}</div>`;
-  }).join('');
-  row.innerHTML = `<div class="rname">${r.name}</div><div class="stack">${segs}</div><div class="rcount">${r.total.toLocaleString()}</div>`;
-  healthMap.appendChild(row);
-});
+// ── Helpers ──────────────────────────────────────────────────
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-document.getElementById('legend').innerHTML = STATES.map(s =>
-  `<div class="li"><span class="dot" style="background:${STATE_COLORS[s]}"></span>${s}</div>`
-).join('');
+function relTime(iso) {
+  if (!iso) return '—';
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (isNaN(mins)) return '—';
+  if (mins < 1) return 'now';
+  if (mins < 60) return mins + 'm';
+  const h = Math.floor(mins / 60);
+  if (h < 24) return h + 'h';
+  return Math.floor(h / 24) + 'd';
+}
+
+async function getJSON(path) {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error(`${path} → HTTP ${res.status}`);
+  return res.json();
+}
+
+function showApiBanner() {
+  const b = document.createElement('div');
+  b.className = 'api-banner';
+  b.textContent = 'API unavailable — showing demo data';
+  document.querySelector('.content').prepend(b);
+}
+
+// ── Loading skeletons ────────────────────────────────────────
+function showSkeletons() {
+  const skel = n => Array.from({ length: n }, () => '<div class="skel"></div>').join('');
+  const hm = document.getElementById('healthMap');
+  hm.classList.add('loading-skel'); hm.innerHTML = skel(4);
+  const af = document.getElementById('alertFeed');
+  af.classList.add('loading-skel'); af.innerHTML = skel(6);
+  const sp = document.getElementById('sparks');
+  sp.classList.add('loading-skel'); sp.innerHTML = skel(5);
+  document.getElementById('velocityTable').innerHTML =
+    Array.from({ length: 5 }, () => '<tr><td colspan="5"><div class="skel" style="height:16px"></div></td></tr>').join('');
+}
+
+// ── Render: KPI strip ────────────────────────────────────────
+function renderKpis(k) {
+  const kv = document.querySelectorAll('.kpis .kv');
+  const kt = document.querySelectorAll('.kpis .kt');
+  kv[0].textContent = k.active.toLocaleString();  kt[0].textContent = k.activeSub;
+  kv[1].textContent = k.stalled.toLocaleString(); kt[1].textContent = k.stalledSub;
+  kv[2].textContent = k.negotiating.toLocaleString(); kt[2].textContent = k.negotiatingSub;
+  kv[3].textContent = k.overdue.toLocaleString(); kt[3].textContent = k.overdueSub;
+}
+
+// ── Render: health map ───────────────────────────────────────
+function renderHealthMap(regions) {
+  const healthMap = document.getElementById('healthMap');
+  healthMap.classList.remove('loading-skel');
+  healthMap.innerHTML = '';
+  if (!regions.length) {
+    healthMap.innerHTML = '<div class="no-data">No account data available.</div>';
+  }
+  regions.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'region-row';
+    const segs = STATES.map(s => {
+      const pct = r.dist[s] || 0;
+      const label = pct >= 8 ? pct + '%' : '';
+      return `<div class="seg seg-${s}" style="flex:${pct}" title="${esc(r.name)} · ${s}: ${pct}% (${Math.round(r.total*pct/100)} accounts)">${label}</div>`;
+    }).join('');
+    row.innerHTML = `<div class="rname">${esc(r.name)}</div><div class="stack">${segs}</div><div class="rcount">${r.total.toLocaleString()}</div>`;
+    healthMap.appendChild(row);
+  });
+
+  document.getElementById('legend').innerHTML = STATES.map(s =>
+    `<div class="li"><span class="dot" style="background:${STATE_COLORS[s]}"></span>${s}</div>`
+  ).join('');
+}
 
 // ── Render: alert feed ───────────────────────────────────────
-document.getElementById('alertFeed').innerHTML = alerts.map(a => `
-  <div class="alert sev-${a.sev}">
+function renderAlerts(alerts) {
+  const feed = document.getElementById('alertFeed');
+  feed.classList.remove('loading-skel');
+  if (!alerts.length) {
+    feed.innerHTML = '<div class="no-data">No open alerts.</div>';
+    return;
+  }
+  feed.innerHTML = alerts.map(a => `
+  <div class="alert sev-${esc(a.sev)}">
     <div class="aicon">${a.icon}</div>
     <div class="abody">
-      <div class="atitle">${a.tag} — ${a.airline} <span class="aexec">· ${a.exec}</span></div>
-      <div class="amsg">${a.msg}</div>
+      <div class="atitle">${esc(a.tag)}${a.airline ? ' — ' + esc(a.airline) : ''}${a.exec ? ` <span class="aexec">· ${esc(a.exec)}</span>` : ''}</div>
+      <div class="amsg">${esc(a.msg)}</div>
     </div>
-    <div class="atime">${a.time} ago</div>
+    <div class="atime">${esc(a.time)} ago</div>
   </div>`).join('');
+}
 
 // ── Render: velocity table ───────────────────────────────────
-document.getElementById('velocityTable').innerHTML = velocity.map(v => `
+function renderVelocity(velocity) {
+  const tbody = document.getElementById('velocityTable');
+  if (!velocity.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="no-data">No accounts found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = velocity.map(v => `
   <tr>
-    <td class="airline">${v.airline}</td>
-    <td class="exec">${v.exec}</td>
-    <td class="num">${v.offers}</td>
-    <td class="exec">${v.last}</td>
-    <td><span class="badge badge-${v.state}">${v.state}</span></td>
+    <td class="airline">${esc(v.airline)}</td>
+    <td class="exec">${esc(v.exec)}</td>
+    <td class="num">${esc(v.offers)}</td>
+    <td class="exec">${esc(v.last)}</td>
+    <td><span class="badge badge-${esc(v.state)}">${esc(v.state)}</span></td>
   </tr>`).join('');
+}
 
 // ── Render: sparklines ───────────────────────────────────────
 function sparkline(series, color) {
@@ -418,23 +510,134 @@ function sparkline(series, color) {
   </svg>`;
 }
 
-const sparks = document.getElementById('sparks');
-STATES.forEach(s => {
-  const series = trends[s];
-  const cur = series[series.length - 1], prev = series[series.length - 2];
-  const delta = cur - prev;
-  const goodUp = (s === 'ACTIVE');
-  const good = goodUp ? delta >= 0 : delta <= 0;
-  const div = document.createElement('div');
-  div.className = 'spark';
-  div.innerHTML = `
+function renderSparks(trends) {
+  const sparks = document.getElementById('sparks');
+  sparks.classList.remove('loading-skel');
+  sparks.innerHTML = '';
+  STATES.forEach(s => {
+    const series = trends[s] || [];
+    const div = document.createElement('div');
+    div.className = 'spark';
+    if (series.length < 2) {
+      div.innerHTML = `
+    <div class="sp-head">
+      <span class="sp-name" style="color:${STATE_COLORS[s]}">${s}</span>
+      <span class="sp-val">—</span>
+    </div>
+    <div class="no-data">No data</div>`;
+      sparks.appendChild(div);
+      return;
+    }
+    const cur = series[series.length - 1], prev = series[series.length - 2];
+    const delta = cur - prev;
+    const goodUp = (s === 'ACTIVE');
+    const good = goodUp ? delta >= 0 : delta <= 0;
+    div.innerHTML = `
     <div class="sp-head">
       <span class="sp-name" style="color:${STATE_COLORS[s]}">${s}</span>
       <span class="sp-val">${cur.toLocaleString()} <small style="font-weight:600;color:${good ? '#16a34a' : '#dc2626'}">${delta >= 0 ? '+' : ''}${delta}</small></span>
     </div>
     ${sparkline(series, STATE_COLORS[s])}`;
-  sparks.appendChild(div);
-});
+    sparks.appendChild(div);
+  });
+}
+
+// ── API → UI mappers ─────────────────────────────────────────
+// GET /api/v1/dashboard/overview → KPI strip
+function overviewToKpis(ov) {
+  const s = ov.accounts_by_state || {};
+  const offers = ov.offers_by_status || {};
+  return {
+    active: s.ACTIVE || 0,
+    activeSub: `of ${(ov.total_accounts || 0).toLocaleString()} total accounts`,
+    stalled: s.STALLED || 0,
+    stalledSub: '● Needs action',
+    negotiating: offers.negotiating || 0,
+    negotiatingSub: `${(offers.proposed || 0).toLocaleString()} more proposed`,
+    overdue: ov.action_items_overdue || 0,
+    overdueSub: `${(ov.action_items_open || 0).toLocaleString()} open in total`,
+  };
+}
+
+// GET /api/v1/dashboard/overview → state distribution (API has no
+// region dimension, so a single org-wide distribution row is shown)
+function overviewToRegions(ov) {
+  const s = ov.accounts_by_state || {};
+  const total = ov.total_accounts || STATES.reduce((a, k) => a + (s[k] || 0), 0);
+  if (!total) return [];
+  const dist = {};
+  STATES.forEach(k => { dist[k] = Math.round((s[k] || 0) / total * 100); });
+  return [{ name: 'All Regions', total, dist }];
+}
+
+// GET /api/v1/nudges → alert feed
+function nudgesToAlerts(rows) {
+  const sevMap = { urgent: 'cold', warning: 'stall', info: 'due' };
+  const iconMap = { cold: '🚨', stall: '⚠️', due: '📋', esc: '🔺' };
+  return (rows || []).slice(0, 10).map(n => {
+    const sev = n.escalated ? 'esc' : (sevMap[n.severity] || 'due');
+    return {
+      sev,
+      icon: iconMap[sev],
+      tag: String(n.nudge_type || 'nudge').replace(/_/g, ' ').toUpperCase(),
+      airline: '', exec: '',
+      msg: n.message || '',
+      time: relTime(n.created_at),
+    };
+  });
+}
+
+// GET /api/v1/accounts → bottom table (offers/executive not included
+// in the list response — shown as "—")
+function accountsToVelocity(items) {
+  return (items || []).slice(0, 5).map(a => ({
+    airline: a.airline_name || '—',
+    exec: '—',
+    offers: '—',
+    last: a.state_changed_at ? relTime(a.state_changed_at) + ' ago' : '—',
+    state: a.state || '—',
+  }));
+}
+
+// GET /api/v1/metrics → 8-week per-state series from state_distribution
+function metricsToTrends(m) {
+  const byState = {};
+  (m.state_distribution || []).forEach(r => {
+    (byState[r.state] = byState[r.state] || []).push({ w: r.snapshot_week, c: Number(r.count) || 0 });
+  });
+  const out = {};
+  Object.keys(byState).forEach(s => {
+    out[s] = byState[s].sort((a, b) => (a.w < b.w ? -1 : 1)).map(x => x.c).slice(-8);
+  });
+  return out;
+}
+
+// ── Boot: fetch live data, fall back to demo data ────────────
+async function init() {
+  showSkeletons();
+  try {
+    const [overview, accounts, nudges, metrics] = await Promise.all([
+      getJSON('/api/v1/dashboard/overview'),
+      getJSON('/api/v1/accounts?limit=20'),
+      getJSON('/api/v1/nudges'),
+      getJSON('/api/v1/metrics'),
+    ]);
+    renderKpis(overviewToKpis(overview));
+    renderHealthMap(overviewToRegions(overview));
+    renderAlerts(nudgesToAlerts(nudges));
+    renderVelocity(accountsToVelocity(accounts.items));
+    renderSparks(metricsToTrends(metrics));
+  } catch (err) {
+    console.warn('API unavailable, falling back to demo data:', err);
+    showApiBanner();
+    renderHealthMap(SAMPLE_REGIONS);   // KPI strip keeps its hardcoded demo values
+    renderAlerts(SAMPLE_ALERTS);
+    renderVelocity(SAMPLE_VELOCITY);
+    renderSparks(SAMPLE_TRENDS);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
