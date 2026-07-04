@@ -106,5 +106,20 @@ services:
       kafka:
         condition: service_healthy
 
+  # ── Nudge Scheduler (state machine runner) ─────────────────
+  nudge-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "cron.nudge_scheduler"]
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://flights:flights@postgres:5432/flights_sales"
+      REDIS_URL: "redis://redis:6379/0"
+      ENVIRONMENT: "development"
+      LOG_LEVEL: "INFO"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

@@ -37,7 +37,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import settings
-from core.database import get_session, engine
+from core.database import get_session, engine, async_session_factory
 from core.cache import cache
 from core.state_machine import nudge_engine_tick
 

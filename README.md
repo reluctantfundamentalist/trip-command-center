@@ -38,6 +38,8 @@ Email Ingestion Worker --> Kafka (extraction.jobs) --> Extraction Worker Pool
 │   └── mine_collective_intelligence.py # Map-reduce pattern mining
 ├── workers/
 │   └── extraction_worker.py        # Kafka consumer for extraction jobs
+├── cron/
+│   └── nudge_scheduler.py          # Periodic state machine runner (every 15 min)
 ├── config/
 │   └── settings.py                 # Pydantic BaseSettings configuration
 ├── docker-compose.yml              # PostgreSQL 15, Kafka, Redis, app
@@ -84,6 +86,9 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Run the extraction worker (separate terminal)
 python -m workers.extraction_worker
+
+# Run the nudge scheduler (separate terminal; use --once for a single cycle)
+python -m cron.nudge_scheduler
 ```
 
 ## Configuration
