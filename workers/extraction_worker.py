@@ -276,7 +276,11 @@ async def process_extraction_job(job: dict) -> dict:
     subject = job.get("subject")
     thread_id = job.get("thread_id")
     attachments_raw = job.get("attachments", [])
-    received_at = job.get("received_at", datetime.now(timezone.utc).isoformat())
+    received_at_str = job.get("received_at")
+    if received_at_str:
+        received_at = datetime.fromisoformat(received_at_str.replace("Z", "+00:00"))
+    else:
+        received_at = datetime.now(timezone.utc)
 
     stats = {"offers": 0, "action_items": 0, "meetings": 0, "attachments_processed": 0}
 
@@ -370,7 +374,8 @@ class ExtractionWorker:
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
             auto_offset_reset="earliest",
             enable_auto_commit=False,
-            max_poll_records=10,
+            max_poll_records=2,
+            max_poll_interval_ms=300000,
         )
         await self._consumer.start()
         self._running = True
