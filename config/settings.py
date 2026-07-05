@@ -77,7 +77,7 @@ class NudgeSettings(BaseSettings):
 
 class IngestionSettings(BaseSettings):
     """Email ingestion pipeline settings."""
-    poll_interval_seconds: int = Field(default=600)
+    poll_interval_seconds: int = Field(default=86400)  # 1 day
     backfill_days: int = Field(default=90)
     max_attachment_size_mb: int = Field(default=25)
     supported_attachment_types: list[str] = Field(
