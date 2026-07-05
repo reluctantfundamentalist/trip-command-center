@@ -1,0 +1,31 @@
+workers/extraction_worker.py
+  s_9b0370fcade301::t_d92dad158bfe4c 362,364-371
+api/main.py
+  s_9b0370fcade301::t_3f7943d0a1ae7a 248-266
+  s_9b0370fcade301::t_cca83391ef11fb 129-130,149-150,166-196
+schema.sql
+  s_9b0370fcade301::t_d6b447bcf6f5b2 11-27,32-34
+core/state_machine.py
+  s_9b0370fcade301::t_ee905f7d4f0c75 528
+  s_9b0370fcade301::t_a14b9266d632d8 286,291-292
+  s_9b0370fcade301::t_0b9dd8c463d632 157-204
+  s_9b0370fcade301::t_82faa627b56a0d 416,418-421,432,436-454,456,474-480,510-524
+workers/outlook_poller.py
+  s_9b0370fcade301::t_504232f2535637 194-207,209-213,222-223,227,229-231,236,242-255
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.28-trip",
+  "base_commit_sha": "922eeb2d34f972655bd38fc121e06f1610f97689",
+  "prompts": {},
+  "sessions": {
+    "s_9b0370fcade301": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8dad1dfd-9e74-4536-9382-55f248f5c4fd",
+        "model": "MiniMax-M2.7"
+      },
+      "human_author": "Anuj Bansal <anuj.bansal@trip.com>"
+    }
+  }
+}
