@@ -289,7 +289,7 @@ async def get_account_timeline(
         outer_conditions.append("event_at <= :until")
         params["until"] = until
 
-    outer_where = "WHERE " + " AND ".join(outer_conditions) if outer_conditions else ""
+    outer_where = "1=1" + (" AND " + " AND ".join(outer_conditions) if outer_conditions else "")
 
     # Union meetings, offers, action_items, nudges into timeline
     query = f"""
