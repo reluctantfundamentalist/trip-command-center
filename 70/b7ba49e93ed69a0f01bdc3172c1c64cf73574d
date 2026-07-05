@@ -1,0 +1,19 @@
+workers/extraction_worker.py
+  s_9b0370fcade301::t_ed9f5ae5dc5c71 287-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.28-trip",
+  "base_commit_sha": "70b7ba49e93ed69a0f01bdc3172c1c64cf73574d",
+  "prompts": {},
+  "sessions": {
+    "s_9b0370fcade301": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8dad1dfd-9e74-4536-9382-55f248f5c4fd",
+        "model": "MiniMax-M2.7"
+      },
+      "human_author": "Anuj Bansal <anuj.bansal@trip.com>"
+    }
+  }
+}
