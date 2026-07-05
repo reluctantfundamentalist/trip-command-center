@@ -289,6 +289,17 @@ async def process_extraction_job(job: dict) -> dict:
         logger.info("Skipping job %s: no airline match", raw_email_id)
         return stats
 
+    # Skip already-processed emails (idempotency for replay scenarios)
+    async with async_session_factory() as check_session:
+        result = await check_session.execute(
+            text("SELECT processed FROM raw_emails WHERE id = :eid"),
+            {"eid": raw_email_id},
+        )
+        row = result.scalar_one_or_none()
+        if row and row.processed:
+            logger.info("Skipping job %s: already processed", raw_email_id)
+            return stats
+
     # Assemble context
     account_context = await _assemble_account_context(airline_id)
 
