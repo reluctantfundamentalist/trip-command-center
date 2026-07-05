@@ -284,6 +284,11 @@ async def process_extraction_job(job: dict) -> dict:
 
     stats = {"offers": 0, "action_items": 0, "meetings": 0, "attachments_processed": 0}
 
+    # Skip emails with no airline match — nothing to contextualize against
+    if not airline_id:
+        logger.info("Skipping job %s: no airline match", raw_email_id)
+        return stats
+
     # Assemble context
     account_context = await _assemble_account_context(airline_id)
 
