@@ -296,7 +296,7 @@ async def process_extraction_job(job: dict) -> dict:
             {"eid": raw_email_id},
         )
         row = result.scalar_one_or_none()
-        if row and row.processed:
+        if row:  # processed is True
             logger.info("Skipping job %s: already processed", raw_email_id)
             return stats
 
