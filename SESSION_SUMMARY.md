@@ -5,7 +5,7 @@
 
 ## GitHub
 https://github.com/reluctantfundamentalist/trip-command-center
-Latest commit: `23664e4`
+Latest commit: `922eeb2`
 
 ## What Was Done Today
 
@@ -41,6 +41,15 @@ Latest commit: `23664e4`
 - 49 raw emails ingested, 3 matched to airlines
 
 ## Current Issues
+
+### Account Hierarchy (Global + Local)
+- `airline_accounts` now has: `parent_account_id`, `scope` ('global'|'local'), `is_global`
+- Global accounts are root-level; local accounts point to their global parent
+- Emirates seeded as hierarchy: Emirates (global) → Emirates UAE, Emirates India (local)
+- Outlook poller routes all domain matches to global parent account
+- State machine evaluates global accounts with aggregated child signals
+- API: `?global_only=true` filter, `?include_children=true` nesting, `children`/`parent` in detail
+- Access control: independent per account (global ownership does NOT cascade to children)
 
 ### Kafka Consumer Timeout
 - Fixed: bumped `max_poll_interval_ms` 5min → 15min
