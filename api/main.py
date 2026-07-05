@@ -126,6 +126,8 @@ async def list_accounts(
     exec_id: str | None = Query(None),
     state: str | None = Query(None),
     category: str | None = Query(None),
+    global_only: bool = Query(False),
+    include_children: bool = Query(False),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
@@ -144,6 +146,8 @@ async def list_accounts(
     if category:
         conditions.append("a.category = :category")
         params["category"] = category
+    if global_only:
+        conditions.append("a.is_global = TRUE")
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
     offset = (page - 1) * limit
@@ -158,6 +162,38 @@ async def list_accounts(
         f"ORDER BY a.airline_name ASC LIMIT :limit OFFSET :offset"
     )
     rows = _rows_to_dicts(await session.execute(text(data_q), params))
+
+    # If include_children, fetch and nest local accounts under their global parents
+    if include_children and not global_only:
+        # Fetch all local accounts
+        local_rows = _rows_to_dicts(await session.execute(
+            text(
+                "SELECT a.* FROM airline_accounts a "
+                "WHERE a.is_global = FALSE ORDER BY a.airline_name"
+            )
+        ))
+        # Group by parent_account_id
+        children_map: dict[str, list[dict]] = {}
+        for child in local_rows:
+            parent_id = child.get("parent_account_id")
+            if parent_id:
+                children_map.setdefault(str(parent_id), []).append(child)
+
+        for row in rows:
+            row_id = str(row["id"])
+            row["children"] = children_map.get(row_id, [])
+    elif include_children and global_only:
+        # global_only already returns only roots; add children arrays
+        children_map: dict[str, list[dict]] = {}
+        local_rows = _rows_to_dicts(await session.execute(
+            text("SELECT id, parent_account_id FROM airline_accounts WHERE is_global = FALSE")
+        ))
+        for child in local_rows:
+            pid = child.get("parent_account_id")
+            if pid:
+                children_map.setdefault(str(pid), []).append(child)
+        for row in rows:
+            row["children"] = children_map.get(str(row["id"]), [])
 
     return {"items": _serialize(rows), "total": total}
 
@@ -208,6 +244,25 @@ async def get_account(
     account["meetings"] = meetings
     account["offers"] = offers
     account["action_items"] = action_items
+
+    # Children (local accounts under this global account)
+    children = _rows_to_dicts(await session.execute(
+        text(
+            "SELECT * FROM airline_accounts WHERE parent_account_id = :aid"
+        ),
+        {"aid": account_id},
+    ))
+    account["children"] = children
+
+    # Parent (global account, if this is a local account)
+    if account.get("parent_account_id"):
+        parent_row = await session.execute(
+            text("SELECT * FROM airline_accounts WHERE id = :pid"),
+            {"pid": account["parent_account_id"]},
+        )
+        parent = parent_row.first()
+        if parent:
+            account["parent"] = dict(parent._mapping)
 
     return _serialize(account)
 

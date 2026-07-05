@@ -359,8 +359,16 @@ async def process_extraction_job(job: dict) -> dict:
 
         await session.commit()
 
-    # Invalidate caches
+    # Invalidate caches (including parent global account if this is a local account)
     await cache.on_extraction_complete(airline_id, executive_id)
+    async with async_session_factory() as check_session:
+        result = await check_session.execute(
+            text("SELECT parent_account_id FROM airline_accounts WHERE id = :aid"),
+            {"aid": airline_id},
+        )
+        parent_id = result.scalar_one_or_none()
+        if parent_id:
+            await cache.invalidate_account_context(str(parent_id))
 
     logger.info(
         "Job %s complete: %d meeting, %d offers, %d action items, %d attachments",

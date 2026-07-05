@@ -191,8 +191,26 @@ class OutlookPoller:
             await session.commit()
             logger.debug("Updated delta token for exec %s", exec_id)
 
+    async def _resolve_to_global(self, airline_id: str) -> str:
+        """Resolve a local account to its global root. Returns airline_id unchanged if already global."""
+        async with async_session_factory() as session:
+            result = await session.execute(
+                text(
+                    "SELECT parent_account_id FROM airline_accounts WHERE id = :aid"
+                ),
+                {"aid": airline_id},
+            )
+            row = result.scalar_one_or_none()
+            if row and row.parent_account_id:
+                return str(row.parent_account_id)
+            return airline_id
+
     async def _match_airline_by_domain(self, email_address: str) -> str | None:
-        """Match an email address to an airline account by domain."""
+        """Match an email address to an airline account by domain.
+
+        Returns the GLOBAL account ID when a local account is matched
+        (local accounts are not directly used for email routing).
+        """
         domain = email_address.split("@")[-1].lower() if "@" in email_address else ""
         if not domain:
             return None
@@ -201,20 +219,40 @@ class OutlookPoller:
             # Try exact domain match on email_domains array
             result = await session.execute(
                 text(
-                    "SELECT id FROM airline_accounts WHERE :domain = ANY(email_domains) LIMIT 1"
+                    "SELECT id, parent_account_id FROM airline_accounts "
+                    "WHERE :domain = ANY(email_domains) LIMIT 1"
                 ),
                 {"domain": domain},
             )
-            row = result.scalar_one_or_none()
+            row = result.one_or_none()
             if row:
-                return str(row)
+                matched_id = str(row._mapping["id"])
+                parent_id = row._mapping["parent_account_id"]
+                return str(parent_id) if parent_id else matched_id
 
             # Try partial match (e.g., subdomain)
             result = await session.execute(
                 text(
-                    "SELECT id FROM airline_accounts WHERE EXISTS ("
+                    "SELECT id, parent_account_id FROM airline_accounts WHERE EXISTS ("
                     "  SELECT 1 FROM unnest(email_domains) AS d WHERE :domain LIKE '%' || d"
                     ") LIMIT 1"
+                ),
+                {"domain": domain},
+            )
+            row = result.one_or_none()
+            if row:
+                matched_id = str(row._mapping["id"])
+                parent_id = row._mapping["parent_account_id"]
+                return str(parent_id) if parent_id else matched_id
+
+            # Fallback: try matching against global parents' domains
+            # (handles emails from a local domain when the local account has no
+            # direct domain match but its global parent does)
+            result = await session.execute(
+                text(
+                    "SELECT g.id FROM airline_accounts g "
+                    "WHERE g.is_global = TRUE "
+                    "  AND :domain = ANY(g.email_domains) LIMIT 1"
                 ),
                 {"domain": domain},
             )

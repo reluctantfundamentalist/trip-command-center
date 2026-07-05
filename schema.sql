@@ -8,20 +8,30 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- airline_accounts
 -- ============================================================
 CREATE TABLE airline_accounts (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    airline_name    TEXT NOT NULL,
-    iata_code       CHAR(2),
-    category        TEXT NOT NULL CHECK (category IN ('lcc', 'full_service', 'regional', 'cargo', 'charter')),
-    email_domains   TEXT[] NOT NULL,
-    known_contacts  JSONB NOT NULL DEFAULT '[]',
-    state           TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (state IN ('ACTIVE','WARM','COLD','STALLED','DORMANT')),
-    state_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    airline_name        TEXT NOT NULL,
+    iata_code           CHAR(2),
+    category            TEXT NOT NULL CHECK (category IN ('lcc', 'full_service', 'regional', 'cargo', 'charter')),
+    email_domains       TEXT[] NOT NULL,
+    known_contacts      JSONB NOT NULL DEFAULT '[]',
+    state               TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (state IN ('ACTIVE','WARM','COLD','STALLED','DORMANT')),
+    state_changed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    parent_account_id   UUID REFERENCES airline_accounts(id),
+    scope               TEXT NOT NULL DEFAULT 'local' CHECK (scope IN ('global', 'local')),
+    is_global           BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT no_parent_for_global CHECK (
+        (is_global = TRUE AND parent_account_id IS NULL) OR
+        (is_global = FALSE)
+    )
 );
 
 CREATE INDEX idx_airline_accounts_state ON airline_accounts(state);
 CREATE INDEX idx_airline_accounts_iata ON airline_accounts(iata_code);
+CREATE INDEX idx_airline_accounts_parent ON airline_accounts(parent_account_id);
+CREATE INDEX idx_airline_accounts_scope ON airline_accounts(scope) WHERE scope = 'global';
+CREATE INDEX idx_airline_accounts_global ON airline_accounts(is_global) WHERE is_global = TRUE;
 
 -- ============================================================
 -- executives

@@ -154,6 +154,54 @@ async def _get_account_executives(session: AsyncSession, airline_id: UUID) -> li
     return [dict(r._mapping) for r in result.fetchall()]
 
 
+async def _get_global_executives_including_children(
+    session: AsyncSession, global_airline_id: UUID
+) -> list[dict]:
+    """For a global account, include executives from all local child accounts too."""
+    result = await session.execute(
+        text(
+            "SELECT ea.executive_id, ea.role, e.full_name, e.email, e.manager_id, "
+            "       ea.airline_id AS source_account_id "
+            "FROM executive_accounts ea "
+            "JOIN executives e ON e.id = ea.executive_id "
+            "WHERE ea.airline_id = :global_id "
+            "   OR ea.airline_id IN ("
+            "       SELECT id FROM airline_accounts WHERE parent_account_id = :global_id"
+            "   )"
+        ),
+        {"global_id": str(global_airline_id)},
+    )
+    return [dict(r._mapping) for r in result.fetchall()]
+
+
+async def _get_local_account_ids_including_parent(
+    session: AsyncSession, local_airline_id: UUID
+) -> list[str]:
+    """Return [local_id, parent_global_id] if this is a local account with a global parent."""
+    result = await session.execute(
+        text(
+            "SELECT id, parent_account_id FROM airline_accounts WHERE id = :aid"
+        ),
+        {"aid": str(local_airline_id)},
+    )
+    row = result.one_or_none()
+    if not row:
+        return [str(local_airline_id)]
+    m = row._mapping
+    if m["parent_account_id"]:
+        return [str(m["id"]), str(m["parent_account_id"])]
+    return [str(m["id"])]
+
+
+async def _get_child_account_ids(session: AsyncSession, global_airline_id: UUID) -> list[str]:
+    """Return all local child account IDs for a global account."""
+    result = await session.execute(
+        text("SELECT id FROM airline_accounts WHERE parent_account_id = :global_id"),
+        {"global_id": str(global_airline_id)},
+    )
+    return [str(r._mapping["id"]) for r in result.fetchall()]
+
+
 async def _recently_nudged(
     session: AsyncSession,
     airline_id: UUID,
@@ -235,11 +283,13 @@ async def _evaluate_triggers(
     days_since_contact: int | None,
     overdue_items: list[dict],
     stalled_offers: list[dict],
+    executives: list[dict] | None = None,
 ) -> list[NudgeTrigger]:
     """Evaluate all nudge trigger conditions for a single account."""
     cfg = DEFAULT_NUDGE_CONFIG
     triggers: list[NudgeTrigger] = []
-    executives = await _get_account_executives(session, airline_id)
+    if executives is None:
+        executives = await _get_account_executives(session, airline_id)
     if not executives:
         return triggers
 
@@ -363,9 +413,12 @@ async def nudge_engine_tick() -> dict:
     cfg = DEFAULT_NUDGE_CONFIG
 
     async with async_session_factory() as session:
-        # Get all non-dormant accounts (plus dormant ones for re-evaluation)
+        # Get all accounts with hierarchy info
         result = await session.execute(
-            text("SELECT id, airline_name, state FROM airline_accounts")
+            text(
+                "SELECT id, airline_name, state, is_global, parent_account_id "
+                "FROM airline_accounts"
+            )
         )
         accounts = result.fetchall()
 
@@ -376,17 +429,31 @@ async def nudge_engine_tick() -> dict:
             airline_id = acct["id"]
             airline_name = acct["airline_name"]
             old_state = acct["state"]
+            is_global = acct["is_global"]
 
             stats["accounts_evaluated"] += 1
 
-            # Gather signals
-            last_meeting = await _get_last_meeting_date(session, airline_id)
-            days_since = (now - last_meeting).days if last_meeting else None
+            # Determine which accounts to aggregate signals from
+            account_ids_to_query = [str(airline_id)]
+            if is_global:
+                child_ids = await _get_child_account_ids(session, airline_id)
+                account_ids_to_query.extend(child_ids)
 
-            overdue_items = await _get_overdue_action_items(
-                session, airline_id, cfg["action_item_overdue_threshold_days"]
-            )
-            open_items = await _get_open_action_items(session, airline_id)
+            # Gather signals from self (+ children for global accounts)
+            last_meeting = None
+            overdue_items: list[dict] = []
+            open_items: list[dict] = []
+
+            for aid in account_ids_to_query:
+                lm = await _get_last_meeting_date(session, UUID(aid))
+                if lm and (last_meeting is None or lm > last_meeting):
+                    last_meeting = lm
+                overdue_items.extend(await _get_overdue_action_items(
+                    session, UUID(aid), cfg["action_item_overdue_threshold_days"]
+                ))
+                open_items.extend(await _get_open_action_items(session, UUID(aid)))
+
+            days_since = (now - last_meeting).days if last_meeting else None
 
             # Evaluate state
             new_state = evaluate_state(
@@ -404,7 +471,13 @@ async def nudge_engine_tick() -> dict:
                 transition_key = (old_state, new_state)
                 if transition_key in TRANSITION_NUDGE_MAP:
                     tn = TRANSITION_NUDGE_MAP[transition_key]
-                    executives = await _get_account_executives(session, airline_id)
+                    # For global accounts, include executives from all children
+                    if is_global:
+                        executives = await _get_global_executives_including_children(
+                            session, airline_id
+                        )
+                    else:
+                        executives = await _get_account_executives(session, airline_id)
                     if executives:
                         owner = next(
                             (e for e in executives if e["role"] == "owner"),
@@ -434,12 +507,25 @@ async def nudge_engine_tick() -> dict:
                             stats["nudges_sent"] += 1
 
             # Evaluate independent triggers
-            stalled_offers = await _get_stalled_offers(
-                session, airline_id, cfg["offer_stall_threshold_days"]
-            )
+            # For global accounts, include child stalled offers too
+            stalled_offers: list[dict] = []
+            for aid in account_ids_to_query:
+                stalled_offers.extend(
+                    await _get_stalled_offers(session, UUID(aid), cfg["offer_stall_threshold_days"])
+                )
+
+            # Use all executives (including children) for trigger evaluation on global accounts
+            if is_global:
+                trigger_executives = await _get_global_executives_including_children(
+                    session, airline_id
+                )
+            else:
+                trigger_executives = await _get_account_executives(session, airline_id)
+
             triggers = await _evaluate_triggers(
                 session, airline_id, airline_name, new_state,
                 days_since, overdue_items, stalled_offers,
+                executives=trigger_executives,
             )
 
             for trigger in triggers:
