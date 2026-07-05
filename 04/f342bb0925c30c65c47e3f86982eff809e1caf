@@ -1,0 +1,53 @@
+skills/mine_collective_intelligence.py
+  s_9b0370fcade301::t_ed6d89c1dc54c9 94-100,103,105,107-108,111-113,115,120
+skills/compute_account_delta.py
+  s_9b0370fcade301::t_d735384cff1e67 172-178,181,183,185-186,189-191,193,198
+skills/extract_attachment_intel.py
+  s_9b0370fcade301::t_577d5d8a8cc5aa 16
+  s_9b0370fcade301::t_6615f8ced5c8d5 123-129,132,134,136-137,140-142,144,149
+workers/outlook_poller.py
+  s_9b0370fcade301::t_24274cd5eb190e 441
+  s_2203fdb1b6d485::t_03a6c1e2fcb42e 130,133,168-169,174,177-180,238,240,244,246,328-334,337,349,361-362,367,400,413,476,485-488
+  s_9b0370fcade301::t_50ba2d9ac30086 431-432
+  s_2203fdb1b6d485::t_0a31e70f85fe1a 28,49-50,53-58,65-72,80,84-91,93-96,107-114,116-126
+  s_2203fdb1b6d485::t_dbc668f6757d4c 1-27,29-48,51-52,59-64,73-79,81-83,92,97-106,115,127-129,131-132,134-167,170-173,175-176,181-237,239,241-243,245,247-327,335-336,338-348,350-360,363-366,368-399,401-412,414-430,433-440,442-475,477-484,489-543
+.env.example
+  s_2203fdb1b6d485::t_10fc7cd7b02348 1-59
+test-graph-api.py
+  s_2203fdb1b6d485::t_0536c55ca13dad 1-100
+skills/extract_meeting_intel.py
+  s_9b0370fcade301::t_bb9147245cc7f6 19
+  s_9b0370fcade301::t_afb58710a2710b 182-188,191,193,195-196,199-201,203,209
+docker-compose.yml
+  s_2203fdb1b6d485::t_b12d9f1ba5f0d4 124-146
+skills/generate_proactive_guidance.py
+  s_9b0370fcade301::t_ae5af870066c7f 131-137,140,142,144-145,148-150,152,157
+core/attachment_parser.py
+  s_2203fdb1b6d485::t_c0c4fadd8108fe 1-20,28-141,145-197
+  s_9b0370fcade301::t_624b13bdb205cb 142-144
+  s_9b0370fcade301::t_ca35690d4e634e 21-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.28-trip",
+  "base_commit_sha": "04f342bb0925c30c65c47e3f86982eff809e1caf",
+  "prompts": {},
+  "sessions": {
+    "s_2203fdb1b6d485": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9d20cd10-cfe0-49a8-9597-cb97bc9169e4",
+        "model": "kimi-k2.6"
+      },
+      "human_author": "Anuj Bansal <anuj.bansal@trip.com>"
+    },
+    "s_9b0370fcade301": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8dad1dfd-9e74-4536-9382-55f248f5c4fd",
+        "model": "MiniMax-M2.7"
+      },
+      "human_author": "Anuj Bansal <anuj.bansal@trip.com>"
+    }
+  }
+}
