@@ -16,6 +16,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Literal
 
 import httpx
+import os
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config.settings import settings
@@ -178,27 +179,34 @@ def _parse_response(raw: str) -> MeetingIntel:
     reraise=True,
 )
 async def _call_llm(system: str, user: str) -> str:
-    """Call Trip Claw LLM API with retry logic."""
+    """Call Anthropic API with retry logic."""
+    auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
+    if not auth_token:
+        raise RuntimeError("ANTHROPIC_AUTH_TOKEN not set in environment")
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         resp = await client.post(
-            f"{settings.trip_claw.api_url}/chat/completions",
+            f"{base_url}/v1/messages",
             headers={
-                "Authorization": f"Bearer {settings.trip_claw.api_key}",
+                "Authorization": f"Bearer {auth_token}",
                 "Content-Type": "application/json",
+                "x-api-key": auth_token,
+                "anthropic-version": "2023-06-01",
             },
             json={
-                "model": settings.trip_claw.model,
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 4096,
+                "system": system,
                 "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
+                    {"role": "user", "content": user}
                 ],
-                "temperature": 0.1,
-                "response_format": {"type": "json_object"},
             },
         )
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        return data["content"][0]["text"]
 
 
 async def extract_meeting_intel(

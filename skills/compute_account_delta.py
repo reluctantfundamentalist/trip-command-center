@@ -169,27 +169,33 @@ Return ONLY valid JSON: {"summary": "..."}
     reraise=True,
 )
 async def _summarize_delta(delta_dict: dict) -> str:
-    """Call LLM to produce a narrative summary of the delta."""
+    """Call Anthropic API to produce a narrative summary of the delta."""
+    auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
+    if not auth_token:
+        raise RuntimeError("ANTHROPIC_AUTH_TOKEN not set in environment")
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
-            f"{settings.trip_claw.api_url}/chat/completions",
+            f"{base_url}/v1/messages",
             headers={
-                "Authorization": f"Bearer {settings.trip_claw.api_key}",
+                "Authorization": f"Bearer {auth_token}",
                 "Content-Type": "application/json",
+                "x-api-key": auth_token,
+                "anthropic-version": "2023-06-01",
             },
             json={
-                "model": settings.trip_claw.model,
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 1024,
+                "system": SUMMARIZATION_PROMPT,
                 "messages": [
-                    {"role": "system", "content": SUMMARIZATION_PROMPT},
-                    {"role": "user", "content": json.dumps(delta_dict, default=str)},
+                    {"role": "user", "content": json.dumps(delta_dict, default=str)}
                 ],
-                "temperature": 0.2,
-                "max_tokens": 300,
-                "response_format": {"type": "json_object"},
             },
         )
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
+        content = resp.json()["content"][0]["text"]
         parsed = json.loads(content)
         return parsed.get("summary", "No summary available.")
 

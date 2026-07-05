@@ -121,5 +121,28 @@ services:
       postgres:
         condition: service_healthy
 
+  # ── Outlook Poller (Graph delta API ingestion) ───────────────
+  outlook-poller:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "workers.outlook_poller"]
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://flights:flights@postgres:5432/flights_sales"
+      REDIS_URL: "redis://redis:6379/0"
+      KAFKA_BROKERS: "kafka:29092"
+      ENVIRONMENT: "development"
+      LOG_LEVEL: "INFO"
+      OUTLOOK_TENANT_ID: "${OUTLOOK_TENANT_ID:-}"
+      OUTLOOK_CLIENT_ID: "${OUTLOOK_CLIENT_ID:-}"
+      OUTLOOK_CLIENT_SECRET: "${OUTLOOK_CLIENT_SECRET:-}"
+      INGESTION_POLL_INTERVAL_SECONDS: "600"
+      INGESTION_BACKFILL_DAYS: "90"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
 volumes:
   pgdata:

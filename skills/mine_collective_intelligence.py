@@ -91,25 +91,33 @@ def chunk(lst: list, size: int = 50) -> list[list]:
     reraise=True,
 )
 async def _call_llm(system: str, user: str, timeout: float = 120.0) -> str:
+    """Call Anthropic API with retry logic."""
+    auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+    base_url = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
+    if not auth_token:
+        raise RuntimeError("ANTHROPIC_AUTH_TOKEN not set in environment")
+
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(
-            f"{settings.trip_claw.api_url}/chat/completions",
+            f"{base_url}/v1/messages",
             headers={
-                "Authorization": f"Bearer {settings.trip_claw.api_key}",
+                "Authorization": f"Bearer {auth_token}",
                 "Content-Type": "application/json",
+                "x-api-key": auth_token,
+                "anthropic-version": "2023-06-01",
             },
             json={
-                "model": settings.trip_claw.model,
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 4096,
+                "system": system,
                 "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
+                    {"role": "user", "content": user}
                 ],
-                "temperature": 0.2,
-                "response_format": {"type": "json_object"},
             },
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        return resp.json()["content"][0]["text"]
 
 
 def _parse_insights_json(raw: str) -> dict:
