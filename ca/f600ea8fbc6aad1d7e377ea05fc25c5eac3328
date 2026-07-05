@@ -1,0 +1,20 @@
+SESSION_SUMMARY.md
+  s_9b0370fcade301::t_6d313417ab4a67 1-45,49-66
+  s_9b0370fcade301::t_56d2f0480af80a 46-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.28-trip",
+  "base_commit_sha": "caf600ea8fbc6aad1d7e377ea05fc25c5eac3328",
+  "prompts": {},
+  "sessions": {
+    "s_9b0370fcade301": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8dad1dfd-9e74-4536-9382-55f248f5c4fd",
+        "model": "MiniMax-M2.7"
+      },
+      "human_author": "Anuj Bansal <anuj.bansal@trip.com>"
+    }
+  }
+}
