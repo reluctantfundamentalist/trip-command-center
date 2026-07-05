@@ -375,7 +375,8 @@ class ExtractionWorker:
             auto_offset_reset="earliest",
             enable_auto_commit=False,
             max_poll_records=2,
-            max_poll_interval_ms=300000,
+            max_poll_interval_ms=900000,   # 15 minutes — LLM calls can take 30-60s
+            session_timeout_ms=300000,     # 5 minutes — must be < max_poll_interval_ms
         )
         await self._consumer.start()
         self._running = True
