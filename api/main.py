@@ -279,16 +279,17 @@ async def get_account_timeline(
     session: AsyncSession = Depends(get_session),
 ):
     params: dict[str, Any] = {"aid": account_id}
-    conditions = ["airline_id = :aid"]
+    # airline_id filter goes inside each subquery; only event_at filters go in outer WHERE
+    outer_conditions: list[str] = []
 
     if since:
-        conditions.append("event_at >= :since")
+        outer_conditions.append("event_at >= :since")
         params["since"] = since
     if until:
-        conditions.append("event_at <= :until")
+        outer_conditions.append("event_at <= :until")
         params["until"] = until
 
-    where = " AND ".join(conditions)
+    outer_where = "WHERE " + " AND ".join(outer_conditions) if outer_conditions else ""
 
     # Union meetings, offers, action_items, nudges into timeline
     query = f"""
@@ -315,7 +316,7 @@ async def get_account_timeline(
                message AS description, created_at AS event_at
         FROM nudge_log WHERE airline_id = :aid
     ) events
-    WHERE {where}
+    WHERE {outer_where}
     ORDER BY event_at DESC
     LIMIT 200
     """
